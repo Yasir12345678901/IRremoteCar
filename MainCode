@@ -1,0 +1,131 @@
+#include <IRremote.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <Servo.h>
+Servo myservo;
+LiquidCrystal_I2C lcd(0x27,16,2);
+const byte IR_RECEIVE_PIN = 7;
+int serv = 11;
+int driveB = 6;
+int driveF = 5;
+int ledR = 4;
+int ledG = 3;
+int ledB = 2;
+int pingPin = 9;
+int trigPin = 8;
+int value = 0;
+int speed = 0;
+int codeData = 0;
+bool driveBB = false;
+bool driveFB = false;
+bool flip = false;
+
+void setup() {
+  pinMode(driveB, OUTPUT);
+  pinMode(driveF, OUTPUT);
+  pinMode(ledR, OUTPUT);
+  pinMode(ledG, OUTPUT);
+  pinMode(ledB, OUTPUT);
+  Serial.begin(9600);
+  digitalWrite(ledR, HIGH);
+  digitalWrite(ledG, HIGH);
+  digitalWrite(ledB, HIGH);
+  IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
+  lcd.init(); //initialize the lcd
+  lcd.backlight(); //turn on the backlight
+  myservo.attach(serv);
+}
+
+void loop() {
+  if (IrReceiver.decode()){
+    codeData = IrReceiver.decodedIRData.command;
+    if ((codeData == 24) && driveFB){
+      speed += 15;
+      if (speed >= 255){
+        speed = 255;
+      }
+    }
+    else if ((codeData == 24) && driveBB){
+      speed += 15;
+      if (speed >= 120){
+        speed = 120;
+      }
+    }
+    else if (codeData == 82){
+      speed -= 15;
+      if (speed <= 0){
+        speed = 0;
+      }
+    }
+    IrReceiver.resume();
+  }
+
+  if (codeData == 69){
+    driveFB = true;
+    driveBB = false;
+  }
+  else if (codeData == 70){
+    driveFB = false;
+    driveBB = true;
+  }
+  else if (codeData == 28){
+    driveFB = false;
+    driveBB = false;
+    speed = 0;
+    digitalWrite(driveF, LOW);
+    digitalWrite(driveB, LOW);
+  }
+  else if (codeData == 22 && !speed && (driveFB==false) && (driveBB==false)){
+    myservo.write(90);
+  }
+  else if (codeData == 13 && !speed && (driveFB==false) && (driveBB==false)){
+    myservo.write(-90);
+  }
+
+  if (driveFB) {
+    digitalWrite(ledR, HIGH);
+    digitalWrite(ledG, LOW);
+    digitalWrite(ledB, HIGH);
+    analogWrite(driveF, speed);
+    digitalWrite(driveB, LOW);
+    //Serial.print("Mode: D");
+    //Serial.print(" | Speed: ");
+    //Serial.println(speed);
+  }
+  else if (driveBB) {
+    digitalWrite(ledR, HIGH);
+    digitalWrite(ledG, HIGH);
+    digitalWrite(ledB, LOW);
+    digitalWrite(driveF, LOW);
+    analogWrite(driveB, speed);
+    //Serial.print("Mode: R");
+    //Serial.print(" | Speed: ");
+    //Serial.println(speed);
+  }
+  else if (!driveBB && !driveBB && (codeData == 28)){
+    digitalWrite(ledR, LOW);
+    digitalWrite(ledG, HIGH);
+    digitalWrite(ledB, HIGH);
+    //Serial.print("Mode: S");
+    //Serial.print(" | Speed: ");
+    //Serial.println(speed);
+  }
+  //Serial.print("Code Data: ");
+  //Serial.println(codeData);
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Mode: ");
+  if (driveFB){
+    lcd.print("D");
+  }
+  else if (driveBB){
+    lcd.print("R");
+  }
+  else{
+    lcd.print("S");
+  }
+  lcd.setCursor(0,1);
+  lcd.print("Speed: ");
+  lcd.print(speed);
+  delay(250);
+}
